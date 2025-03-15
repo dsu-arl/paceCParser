@@ -175,12 +175,15 @@ def _parse_variable(statement):
     return Variable(data_type=data_type, name=var_name, value=var_value)
 
 
-def _extract_condition_body(conditional_type, statement):
+def _extract_condition_body(conditional_type, statement):    
+    print('Inside _extract_condition_body()')
+    print('conditional_type:', conditional_type)
+    print('statement:', statement)
+    
     # Iterates through conditional and return the condition body as a string
     if conditional_type in ('if', 'else if'):
         # iterate through string until closing brace 
-        # find first (
-        # iterate until first ( is closed
+        # find first ( and then iterate until first ( is closed
         start = statement.find('(')
         if start == -1:
             return -1
@@ -196,13 +199,19 @@ def _extract_condition_body(conditional_type, statement):
                     break
     else:
         # get index after 'else' keyword and get everything after that
-        start_index = statement.find('else')
+        start_index = statement.find('else') + len('else')
     
     # grab everything after starting_idx
     start_index += 1
-    condition_body = statement[start_index:]
+    condition_body = statement[start_index:].strip()
 
-    return condition_body
+    # Remove starting { and ending }
+    condition_body = condition_body[1:-1].strip()
+    
+    split_condition_body = _split_c_code(condition_body)
+    parsed_condition_body = _parse_c_statements(split_condition_body)
+
+    return parsed_condition_body
 
 
 def _parse_conditional(statement):
@@ -216,41 +225,27 @@ def _parse_conditional(statement):
     '''
     # TODO: _parse_conditional() should return everything instead of the condition and the body
     conditional_regex = re.compile(
-        r"\b(if|else\s+if|else)\s*(?:\(([^)]*)\))?\s*\{([^}]*)\}",
+        # r"\b(if|else\s+if|else)\s*(?:\(([^)]*)\))?\s*\{([^}]*)\}",
+        r"\b(if|else\s+if|else)\s*(?:\(([^)]*)\))?\s*(?:\{([^}]*)\}|([^;{]*);)",
         re.DOTALL
     )
 
     match = conditional_regex.search(statement)
     if not match:
         # Throws an error if you try to return either a tuple or None
-        return '', ''
+        return None
 
     conditional_type = match[1]
     condition = match[2] if match[2] else None
 
-    # body will be everything after )
-    # if body is a single line there won't be {
-    # if body is multiple lines there will be {
-
-    # If conditional type is if or else if, grab everything after closing ) (last ')')
-    # If conditional type is else, grab everything after 'else'
-
-    # body will be everything between { and }
-
-    # open_brace_idx = statement.find('{')
-    # close_brace_idx = statement.rfind('}')
-    # body = statement[open_brace_idx+1:close_brace_idx].strip()
-    body = _extract_condition_body(conditional_type, statement)
-    return body
-
-    # Parse body
+    parsed_body = _extract_condition_body(conditional_type, statement.strip())
 
     if conditional_type == 'if':
-        return If(condition, body=[]), body
+        return If(condition, body=parsed_body)
     if conditional_type == 'else if':
-        return ElseIf(condition, body=[]), body
+        return ElseIf(condition, body=parsed_body)
     if conditional_type == 'else':
-        return Else(body=[]), body
+        return Else(body=parsed_body)
 
 
 def _parse_c_statements(c_statements):
@@ -273,11 +268,11 @@ def _parse_c_statements(c_statements):
             continue
 
         # Check if statement is a condition
-        conditional, body = _parse_conditional(statement)
-        if conditional != '':
-            body_statements = _split_c_code(body)
-            body_statements = _parse_c_statements(body_statements)
-            conditional.body = body_statements
+        conditional = _parse_conditional(statement)
+        if conditional:
+            # body_statements = _split_c_code(body)
+            # body_statements = _parse_c_statements(body_statements)
+            # conditional.body = body_statements
             parsed_statements.append(conditional)
             continue
 
@@ -304,7 +299,7 @@ def _get_headers(file_contents):
     return headers
 
 
-def _extract_body(code):
+def _extract_function_body(code):
     '''Identifies and parses any code contained in the body of a conditional, loop, function, etc.
 
     Args:
@@ -381,7 +376,7 @@ def _parse_function(code):
         parameters = _extract_function_parameters(match.group(3))
 
         # Extract function body, split into list of C statements, and parse into appropriate type
-        function_body = _extract_body(code)
+        function_body = _extract_function_body(code)
 
         return FunctionDefinition(return_type=return_type, function_name=function_name, parameters=parameters, body=function_body)
         

@@ -18,13 +18,7 @@ def test_variable_parse(case):
     ids=[case.id for case in conditionals_test_cases]
 )
 def test_condition_parse(case):
-    # _parse_conditional() should return everything instead of the condition and the body
-    conditional, body = _parse_conditional(case.statement)
-    print('Body:', conditional)
-    # body_statements = _split_c_code(body)
-    # body_statements = _parse_c_statements(body_statements)
-    # conditional.body = body_statements
-    assert conditional == case.expected
+    assert _parse_conditional(case.statement) == case.expected
 
 
 @pytest.mark.parametrize(
@@ -33,5 +27,4 @@ def test_condition_parse(case):
     ids=[case.id for case in function_test_cases]
 )
 def test_function_parse(case):
-    function = _parse_function(case.statement)
-    assert function == case.expected
+    assert _parse_function(case.statement) == case.expected

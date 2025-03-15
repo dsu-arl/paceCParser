@@ -104,7 +104,7 @@ conditionals_test_cases = [
     Case(
         id='If statement with no curly braces',
         statement='''
-        if (x >= y)
+        if (x == y)
             printf("x is equal to y\n");
         ''',
         expected=If(
