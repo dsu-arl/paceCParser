@@ -151,7 +151,7 @@ def _parse_variable(statement):
     '''Identifies if the given statement is a variable declaration and parses it if so.
 
     Args:
-        - statement (str): C code statement
+        statement (str): C code statement
     
     Returns:
         Optional[Variable]: If a match is found, returns Variable. Otherwise, returns None.
@@ -175,12 +175,16 @@ def _parse_variable(statement):
     return Variable(data_type=data_type, name=var_name, value=var_value)
 
 
-def _extract_condition_body(conditional_type, statement):    
-    print('Inside _extract_condition_body()')
-    print('conditional_type:', conditional_type)
-    print('statement:', statement)
+def _extract_condition_body(conditional_type, statement):
+    '''Extracts the code body from the given conditional and parses it into a list of C statements.
+
+    Args:
+        conditional_type (str): Type of conditional (if, else if, else)
+        statement (str): C code statement
     
-    # Iterates through conditional and return the condition body as a string
+    Returns:
+        List: List of parsed C statements.
+    '''
     if conditional_type in ('if', 'else if'):
         # iterate through string until closing brace 
         # find first ( and then iterate until first ( is closed
@@ -206,8 +210,9 @@ def _extract_condition_body(conditional_type, statement):
     condition_body = statement[start_index:].strip()
 
     # Remove starting { and ending }
-    condition_body = condition_body[1:-1].strip()
-    
+    if condition_body[0] == '{' and condition_body[-1] == '}':
+        condition_body = condition_body[1:-1].strip()
+
     split_condition_body = _split_c_code(condition_body)
     parsed_condition_body = _parse_c_statements(split_condition_body)
 
@@ -218,12 +223,11 @@ def _parse_conditional(statement):
     '''Identifies if the given statement is a variable declaration and parses it if so.
 
     Args:
-        - statement (str): C code statement
+        statement (str): C code statement
     
     Returns:
         Optional[Variable]: If a match is found, returns Variable. Otherwise, returns None.
     '''
-    # TODO: _parse_conditional() should return everything instead of the condition and the body
     conditional_regex = re.compile(
         # r"\b(if|else\s+if|else)\s*(?:\(([^)]*)\))?\s*\{([^}]*)\}",
         r"\b(if|else\s+if|else)\s*(?:\(([^)]*)\))?\s*(?:\{([^}]*)\}|([^;{]*);)",
