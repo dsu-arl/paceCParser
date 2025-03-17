@@ -9,7 +9,7 @@ except ImportError:
     from data_classes import *
 
 
-__all__ = ['compile_program', 'run_program', 'verify_initial_checks', 'parse_file']
+__all__ = ['compile_program', 'run_program', 'verify_initial_checks', 'parse_file', 'retrieve_function_body']
 
 RED_TEXT_CODE = '\033[31m'
 GREEN_TEXT_CODE = '\033[32m'
@@ -113,6 +113,26 @@ def parse_file(filename):
         formatted_lines.append(_parse_function(line))
 
     return formatted_lines
+
+
+def retrieve_function_body(file_contents, function_name, return_type, parameters):
+    '''Retrieves the function contents for a given function name.
+
+    Args:
+        file_contents (List): List of parsed C statements in file.
+        function_name (str): Name of the function to retrieve.
+        return_type (str): Return type of the function to retrieve.
+        parameters (List[Variable]): List of parameters for function to retrieve.
+    
+    Returns:
+        Optional[List]: List of parsed C statements for found function, or None if failed to find function.
+    '''
+    for statement in file_contents:
+        if isinstance(statement, FunctionDefinition):
+            if function_name == statement.function_name and return_type == statement.return_type and statement.parameters == parameters:
+                return statement.body
+    
+    return None
 
 
 # --------------------- Private Helpers ---------------------
