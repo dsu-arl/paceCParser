@@ -2,6 +2,42 @@
 Submodule to help verify C programs
 
 
+# Available Functions
+### compile_program(c_file, output_file='a.out')
+Compiles a given C program.
+
+Parameters:
+- c_file : str
+- output_file : str
+
+### run_program(executable_file='a.out')
+Executes a given executable and returns the program output.
+
+Parameters:
+- executable_file : str
+
+### verify_initial_checks(filename)
+Verify initial requirements before performing challenge specific checks.
+
+Parameters:
+- filename : str
+
+### parse_file(filename)
+Parse a C file into a list of formatted functions to be used with challenge verification.
+
+Parameters:
+- filename : str
+
+### retrieve_function_body(file_contents, function_name, return_type, parameters)
+Retrieves the function contents for a given function name.
+
+Parameters:
+- file_contents : List[Union[Variable, str, FunctionDeclaration, FunctionDefinition]]
+- function_name : str
+- return_type : str
+- parameters : List[Variable]
+
+
 ## Example Use
 C file to verify
 ```C
@@ -59,7 +95,7 @@ for line in sum_function_body:
     print('\t', line)
 ```
 
-Output:
+Output
 ```commandline
 Main function:
     Variable(data_type='int', name='x', value=10)

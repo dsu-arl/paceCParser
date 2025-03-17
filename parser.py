@@ -43,7 +43,7 @@ def compile_program(c_file, output_file='a.out'):
 
 
 def run_program(executable_file='a.out'):
-    '''Executes a given executable.
+    '''Executes a given executable and returns the program output.
 
     Args:
         executable_file (str): Name of the executable to be run (default: 'a.out').
