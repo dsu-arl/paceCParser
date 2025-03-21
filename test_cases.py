@@ -14,32 +14,56 @@ variables_test_cases = [
     Case(
         id='int declaration and initialization',
         statement='int x = 5;',
-        expected=Variable(data_type='int', name='x', value=5)
+        expected=[Variable(data_type='int', name='x', value=5)]
     ),
     Case(
         id='int declaration',
         statement='int age;',
-        expected=Variable(data_type='int', name='age', value=None)
+        expected=[Variable(data_type='int', name='age', value=None)]
     ),
     Case(
         id='int assignment',
         statement='age = 26;',
-        expected=Variable(data_type=None, name='age', value=26)
+        expected=[Variable(data_type=None, name='age', value=26)]
     ),
     Case(
         id='char declaration and initialization',
         statement="char test = 'c';",
-        expected=Variable(data_type='char', name='test', value="'c'")
+        expected=[Variable(data_type='char', name='test', value="'c'")]
     ),
     Case(
         id='char declaration',
         statement="char letter;",
-        expected=Variable(data_type='char', name='letter', value=None)
+        expected=[Variable(data_type='char', name='letter', value=None)]
     ),
     Case(
         id='char assignment',
         statement="test = 'c';",
-        expected=Variable(data_type=None, name='test', value="'c'")
+        expected=[Variable(data_type=None, name='test', value="'c'")]
+    ),
+    Case(
+        id='multiple int declarations on single line',
+        statement='int x, y;',
+        expected=[
+            Variable(data_type='int', name='x', value=None),
+            Variable(data_type='int', name='y', value=None)
+        ]
+    ),
+    Case(
+        id='multiple int declarations and initializations on single line',
+        statement='int x = 5, y = 10;',
+        expected=[
+            Variable(data_type='int', name='x', value=5),
+            Variable(data_type='int', name='y', value=10)
+        ]
+    ),
+    Case(
+        id='multiple int initializations on single line',
+        statement='x = 5, y = 10;',
+        expected=[
+            Variable(data_type=None, name='x', value=5),
+            Variable(data_type=None, name='y', value=10)
+        ]
     )
 ]
 
@@ -130,7 +154,22 @@ conditionals_test_cases = [
             printf("x is less than y\n");
         ''',
         expected=Else(body=['printf("x is less than y\n");'])
-    )
+    ),
+    Case(
+        id='If statement with multiple integers declared on single line',
+        statement='''
+        if (a == 5) {
+            int a = 6, b = 10;
+        }
+        ''',
+        expected=If(
+            condition='a == 5',
+            body=[
+                Variable(data_type='int', name='a', value=6),
+                Variable(data_type='int', name='b', value=10),
+            ]
+        )
+    ),
 ]
 
 

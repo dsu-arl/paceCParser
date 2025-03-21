@@ -174,25 +174,32 @@ def _parse_variable(statement):
         statement (str): C code statement
     
     Returns:
-        Optional[Variable]: If a match is found, returns Variable. Otherwise, returns None.
+        Optional[List[Variable]]: If a match is found, returns a list of type Variable. Otherwise, returns None.
     '''
-    pattern = r'^\s*(int|float|char|double|long|short|unsigned|signed|void)?\s*([\w*]+)(\s*=\s*([^;]+))?\s*;'
+    pattern = r'^\s*(int|float|char|double|long|short|unsigned|signed|void)?\s*([\w*]+(?:\s*=\s*[^;,]+)?(?:\s*,\s*[\w*]+(?:\s*=\s*[^;,]+)?)*)\s*;'
     match = re.match(pattern, statement)
     if not match:
         return None
 
-    data_type = match.group(1)
-    var_name = match.group(2)
-    if match.group(3):
-        # Value will be in the format ' = 10' so this removes the = and spaces
-        var_value = match.group(3).split('=')[-1].strip()
-        try:
-            var_value = int(var_value)
-        except ValueError:
-            pass
-    else:
-        var_value = None
-    return Variable(data_type=data_type, name=var_name, value=var_value)
+    var_type = match.group(1) if match.group(1) else None
+    var_list = match.group(2).split(',')
+
+    variables = []
+    for var in var_list:
+        var = var.strip()
+        if '=' in var:
+            name, value = map(str.strip, var.split('=', 1))
+            try:
+                value = int(value)
+            except ValueError:
+                pass
+        else:
+            name = var
+            value = None
+        
+        variables.append(Variable(data_type=var_type, name=name, value=value))
+    
+    return variables
 
 
 def _extract_condition_body(conditional_type, statement):
@@ -285,10 +292,10 @@ def _parse_c_statements(c_statements):
 
     for statement in c_statements:
         # Check if statement is a variable
-        variable = _parse_variable(statement)
-        # if variable, then value will not be None
-        if variable:
-            parsed_statements.append(variable)
+        variables = _parse_variable(statement)
+        # if it's a variable, then value will not be None
+        if variables:
+            parsed_statements.extend(variables)
             continue
 
         # Check if statement is a condition
