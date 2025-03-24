@@ -9,28 +9,25 @@ except ImportError:
     from data_classes import *
 
 
+__all__ = ['compile_program', 'run_program', 'verify_initial_checks', 'parse_file', 'retrieve_function_body']
+
 RED_TEXT_CODE = '\033[31m'
 GREEN_TEXT_CODE = '\033[32m'
 RESET_TEXT_CODE = '\033[0m'
 
 
-# define function call as Variable = Function
-# for example: int total = sum(5, 10);
-# Variable(data_type='int', name='total', value=Function(return_type='int', ))
+# --------------------- Public API ---------------------
 
-######################### GET FILE CONTENTS #########################
-def get_file_contents(filename):
-    try:
-        with open(filename, 'r') as file:
-            content = file.read()
-            return content
-    except FileNotFoundError:
-        print(f'Error: File {filename} not found')
-        return None
-
-
-######################### COMPILE PROGRAM #########################
 def compile_program(c_file, output_file='a.out'):
+    '''Compiles a given C program.
+
+    Args:
+        c_file (str): Path to the C source file.
+        output_file (str): Name of the compiled executable (default: 'a.out').
+    
+    Returns:
+        bool: Status of compilation, True if compiled successfully, False if not.
+    '''
     compile_process = subprocess.run(
         ['gcc', c_file, '-o', output_file],
         stdout=subprocess.PIPE,
@@ -45,14 +42,17 @@ def compile_program(c_file, output_file='a.out'):
     return True
 
 
-######################### RUN PROGRAM #########################
-def run_program(c_file, output_file='a.out'):
-    if not compile_program(c_file, output_file):
-        print('Program failed to compile')
-        return None
+def run_program(executable_file='a.out'):
+    '''Executes a given executable and returns the program output.
 
+    Args:
+        executable_file (str): Name of the executable to be run (default: 'a.out').
+    
+    Returns:
+        Optional[str]: Program output as a string, or None if run fails.
+    '''
     run_process = subprocess.run(
-        [f'./{output_file}'],
+        [f'./{executable_file}'],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE
     )
@@ -65,189 +65,15 @@ def run_program(c_file, output_file='a.out'):
     return run_process.stdout.decode()
 
 
-######################### EXTRACT LINES #########################
-def extract_lines(filename):
-    try:
-        with open(filename, 'r') as file:
-            lines = file.readlines()
-    except FileNotFoundError:
-        print(f"Error: File '{filename}' not found.")
-        lines = []
-    
-    lines = [line.replace('\n', '') for line in lines]
-    
-    imports = []
-    for line in lines:
-        if '#include' in imports:
-            imports.append(line)
-
-
-######################### EXTRACT FUNCTION PARAMETERS #########################
-def extract_function_parameters(parameters):
-    if parameters == '':
-        return []
-
-    parameters = parameters.split(',')
-    parameters = [param.strip() for param in parameters]
-    clean_params = []
-    for param in parameters:
-        data_type, param_name = param.split(' ')
-        if param_name[0] == '*':
-            data_type += '*'
-            param_name = param_name[1:]
-        parameter = Variable(data_type=data_type, name=param_name, value=None)
-        clean_params.append(parameter)
-    
-    return clean_params
-
-
-######################### FORMAT FUNCTION DECLARATION #########################
-def format_func_declar(func_str):
-    pattern = r"^(\S+(?:\s+\S+)*)\s+(\w+)\s*\(([^)]*)\)$"
-    match = re.match(pattern, func_str)
-    
-    if not match:
-        print('Function declaration not found')
-        return None
-    
-    return_type, function_name, parameters = match.groups()
-    
-    # Deal with pointer return types for functions as well (int* sum() vs int *sum())
-    if function_name[0] == '*':
-        return_type += '*'
-        function_name = function_name[1:]
-
-    # Extract function parameters
-    clean_parameters = extract_function_parameters(parameters)
-    function = Function(return_type, function_name, clean_parameters)
-    return function
-
-
-######################### FIND FUNCTIONS #########################
-def find_functions(filename):
-    try:
-        with open(filename, 'r') as file:
-            content = file.read()
-    except FileNotFoundError:
-        print(f'Error: File {filename} not found')
-        return None
-
-    function_regex = re.compile(
-        r"""
-        ^\s*                          # Start of the line, optional leading whitespace
-        ([a-zA-Z_][\w\s\*]+)\s+       # Return type (e.g., int, void, char*)
-        ([a-zA-Z_]\w*)\s*             # Function name (C identifier)
-        \(\s*                         # Opening parenthesis for parameters
-        ([^)]*)\s*                    # Parameter list (non-greedy match)
-        \)\s*                         # Closing parenthesis
-        (?:;|{)                       # End with a semicolon (prototype) or opening brace (definition)
-        """,
-        re.VERBOSE | re.MULTILINE
-    )
-
-    # Find all function declarations
-    matches = function_regex.findall(content)
-    print('Matches:', matches)
-
-    functions = []
-    for match in matches:
-        return_type, function_name, parameters = match
-        function_str = f'{return_type} {function_name}({parameters})'
-        clean_func_declar = format_func_declar(function_str)
-        functions.append(clean_func_declar)
-
-    return functions
-
-
-######################### GET FUNCTION CONTENTS #########################
-def get_function_contents(content, function):
-    # Normalize spaces: replace multiple spaces with a single space
-    content = re.sub(r'\s+', ' ', content.strip())
-
-    # Extract details from the dictionary
-    return_type = function.return_type
-    func_name = function.function_name
-    params = function.parameters
-
-    # Build the parameter string
-    param_str = ', '.join(f"{param.data_type} {param.name}" for param in params)
-    
-    # Construct the function signature regex dynamically
-    func_pattern = re.compile(rf'\s*{return_type}\s+{func_name}\s*\({param_str}\)\s*(\{{|\s*\{{)')
-
-    found_function = False
-    inside_function = False
-    brace_count = 0
-    function_body = ''
-
-    # Search for the function match within the entire content
-    match = func_pattern.search(content)
-    
-    if match:
-        found_function = True
-        inside_function = True
-        brace_count = 1  # We've found the opening brace
-
-        # Now process the content after the function signature
-        for i in range(match.end(), len(content)):
-            char = content[i]
-
-            # Track braces to find the body of the function
-            if char == '{':
-                brace_count += 1
-            elif char == '}':
-                brace_count -= 1
-
-            if inside_function and brace_count > 0:
-                function_body += char
-
-            # If we've closed all braces, we've captured the full function
-            if brace_count == 0:
-                inside_function = False
-                break
-
-    if not found_function:
-        return None
-
-    # Extract statements
-    pattern = re.compile(r'[^;]+;')
-    function_body = function_body.strip()
-    statements = pattern.findall(function_body)
-
-    return [statement.strip() for statement in statements]
-
-
-######################### EXTRACT FUNCTION VARIABLES #########################
-def extract_function_variables(function_contents):
-    pattern = r'^\s*(int|float|char|double|long|short|unsigned|signed|void)\s+([\w*]+)(\s*=\s*([^;]+))?\s*;'
-    # pattern = r'^\s*(int|float|char|double|long|short|unsigned|signed|void)\s+([\w*]+)(\s*=\s*(.*))?\s*\(.*\)\s*;'
-
-    variables = []
-    for line in function_contents:
-        match = re.match(pattern, line)
-        if match:
-            print('Match:', match)
-            data_type = match.group(1)
-            var_name = match.group(2)
-            if match.group(3):
-                # Value will be in the format ' = 10' so this removes the = and spaces
-                var_value = match.group(3).split('=')[-1].strip()
-                # check if var_value is a function call
-                func_pattern = r'^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\([^)]*\)\s*'
-                match = re.match(func_pattern, var_value)
-                if match:
-                    print(match.group(1))
-                    print(match.group(2))
-            else:
-                var_value = None
-            print(Variable(data_type=data_type, name=var_name, value=var_value))
-            variables.append(Variable(data_type=data_type, name=var_name, value=var_value))
-
-    return variables
-
-
-######################### VERIFY INITIAL CHECKS #########################
 def verify_initial_checks(filename):
+    '''Verify initial requirements before performing challenge specific checks.
+
+    Args:
+        filename (str): Path to the C file.
+    
+    Returns:
+        bool: True if all checks pass, False otherwise.
+    '''
     # Check file extension
     path = Path(filename)
     if path.suffix.lower() != '.c':
@@ -259,24 +85,67 @@ def verify_initial_checks(filename):
     if not compile_program(filename):
         return False
 
-    # Retrieve contents of C file
-    contents = get_file_contents(filename)
-
-    # Has 'return 0;' as the last line in main()
-    # Compilation will fail if main function doesn't exist
-    main_function = format_func_declar('int main()')
-    function_contents = get_function_contents(contents, main_function)
-    if function_contents is not None:
-        # Check if 'return 0;' is last line in main()
-        if 'return 0;' != function_contents[-1]:
-            print("Missing 'return 0;' statement at end of main()")
-            return False
-
     return True
 
 
-#################### SPLIT C CODE ####################
-def split_c_code(code):
+def parse_file(filename):
+    '''Parse a C file into a list of formatted functions to be used with challenge verification.
+
+    Args:
+        filename (str): Path to the C file.
+    
+    Returns:
+        Optional[List]: List of parsed functions and headers, or None if failed to open file.
+    '''
+    try:
+        with open(filename, 'r') as file:
+            file_contents = file.read()
+    except FileNotFoundError:
+        print(f'Error: File {filename} not found')
+        return None
+
+    formatted_lines = _get_headers(file_contents)
+    for header in formatted_lines:
+        file_contents = file_contents.replace(header, '')
+
+    split_lines = _split_c_code(file_contents)
+    for line in split_lines:
+        formatted_lines.append(_parse_function(line))
+
+    return formatted_lines
+
+
+def retrieve_function_body(file_contents, function_name, return_type, parameters):
+    '''Retrieves the function contents for a given function name.
+
+    Args:
+        file_contents (List): List of parsed C statements in file.
+        function_name (str): Name of the function to retrieve.
+        return_type (str): Return type of the function to retrieve.
+        parameters (List[Variable]): List of parameters for function to retrieve.
+    
+    Returns:
+        Optional[List]: List of parsed C statements for found function, or None if failed to find function.
+    '''
+    for statement in file_contents:
+        if isinstance(statement, FunctionDefinition):
+            if function_name == statement.function_name and return_type == statement.return_type and statement.parameters == parameters:
+                return statement.body
+    
+    return None
+
+
+# --------------------- Private Helpers ---------------------
+
+def _split_c_code(code):
+    '''Splits a string of C code into a list of C statements.
+
+    Args:
+        code (str): C code to be split into statements.
+    
+    Returns:
+        List: List of C statements.
+    '''
     statements = []
     current_statement = ''
     brace_count = 0
@@ -298,88 +167,143 @@ def split_c_code(code):
     return statements
 
 
-#################### CHECK VARIABLE ####################
-def check_variable(statement):
-    '''
-    Identifies if the given statement is a variable declaration and parses it if so.
+def _parse_variable(statement):
+    '''Identifies if the given statement is a variable declaration and parses it if so.
 
     Args:
-        - statement (str): C code statement
+        statement (str): C code statement
     
     Returns:
-        Variable or None: If a match is found, returns Variable. Otherwise, returns None.
+        Optional[List[Variable]]: If a match is found, returns a list of type Variable. Otherwise, returns None.
     '''
-    pattern = r'^\s*(int|float|char|double|long|short|unsigned|signed|void)?\s*([\w*]+)(\s*=\s*([^;]+))?\s*;'
+    pattern = r'^\s*(int|float|char|double|long|short|unsigned|signed|void)?\s*([\w*]+(?:\s*=\s*[^;,]+)?(?:\s*,\s*[\w*]+(?:\s*=\s*[^;,]+)?)*)\s*;'
     match = re.match(pattern, statement)
-    if match:
-        data_type = match.group(1)
-        var_name = match.group(2)
-        if match.group(3):
-            # Value will be in the format ' = 10' so this removes the = and spaces
-            var_value = match.group(3).split('=')[-1].strip()
+    if not match:
+        return None
+
+    var_type = match.group(1) if match.group(1) else None
+    var_list = match.group(2).split(',')
+
+    variables = []
+    for var in var_list:
+        var = var.strip()
+        if '=' in var:
+            name, value = map(str.strip, var.split('=', 1))
             try:
-                var_value = int(var_value)
+                value = int(value)
             except ValueError:
                 pass
         else:
-            var_value = None
-        return Variable(data_type=data_type, name=var_name, value=var_value)
+            name = var
+            value = None
+        
+        variables.append(Variable(data_type=var_type, name=name, value=value))
+    
+    return variables
 
-    return None
+
+def _extract_condition_body(conditional_type, statement):
+    '''Extracts the code body from the given conditional and parses it into a list of C statements.
+
+    Args:
+        conditional_type (str): Type of conditional (if, else if, else)
+        statement (str): C code statement
+    
+    Returns:
+        List: List of parsed C statements.
+    '''
+    if conditional_type in ('if', 'else if'):
+        # iterate through string until closing brace 
+        # find first ( and then iterate until first ( is closed
+        start = statement.find('(')
+        if start == -1:
+            return -1
+    
+        count = 1
+        for i in range(start + 1, len(statement)):
+            if statement[i] == '(':
+                count += 1
+            elif statement[i] == ')':
+                count -= 1
+                if count == 0:
+                    start_index = i
+                    break
+    else:
+        # get index after 'else' keyword and get everything after that
+        start_index = statement.find('else') + len('else')
+    
+    # grab everything after starting_idx
+    start_index += 1
+    condition_body = statement[start_index:].strip()
+
+    # Remove starting { and ending }
+    if condition_body[0] == '{' and condition_body[-1] == '}':
+        condition_body = condition_body[1:-1].strip()
+
+    split_condition_body = _split_c_code(condition_body)
+    parsed_condition_body = _parse_c_statements(split_condition_body)
+
+    return parsed_condition_body
 
 
-#################### CHECK CONDITIONAL ####################
-def check_conditional(statement):
+def _parse_conditional(statement):
+    '''Identifies if the given statement is a variable declaration and parses it if so.
+
+    Args:
+        statement (str): C code statement
+    
+    Returns:
+        Optional[Variable]: If a match is found, returns Variable. Otherwise, returns None.
+    '''
     conditional_regex = re.compile(
-        r"\b(if|else\s+if|else)\s*(?:\(([^)]*)\))?\s*\{([^}]*)\}",
+        # r"\b(if|else\s+if|else)\s*(?:\(([^)]*)\))?\s*\{([^}]*)\}",
+        r"\b(if|else\s+if|else)\s*(?:\(([^)]*)\))?\s*(?:\{([^}]*)\}|([^;{]*);)",
         re.DOTALL
     )
+
     match = conditional_regex.search(statement)
-    if match:
-        conditional_type = match[1]
-        condition = match[2] if match[2] else None
-        
-        # body will be everything between { and }
-        open_brace_idx = statement.find('{')
-        close_brace_idx = statement.rfind('}')
-        body = statement[open_brace_idx+1:close_brace_idx].strip()
+    if not match:
+        # Throws an error if you try to return either a tuple or None
+        return None
 
-        # figure out how to handle conditionals that don't have curly braces (for if, else if, and else)
-        # for example:
-        '''
-        if (10 < 14)
-            printf("10 is bigger than 14\n");
-        '''
+    conditional_type = match[1]
+    condition = match[2] if match[2] else None
 
-        if conditional_type == 'if':
-            return If(condition, body=[]), body
-        if conditional_type == 'else if':
-            return ElseIf(condition, body=[]), body
-        if conditional_type == 'else':
-            return Else(body=[]), body
-        
-    # Throws an error if you try to return either a tuple or None
-    return '', ''
+    parsed_body = _extract_condition_body(conditional_type, statement.strip())
+
+    if conditional_type == 'if':
+        return If(condition, body=parsed_body)
+    if conditional_type == 'else if':
+        return ElseIf(condition, body=parsed_body)
+    if conditional_type == 'else':
+        return Else(body=parsed_body)
 
 
-#################### PARSE C STATEMENTS ####################
-def parse_c_statements(c_statements):
+def _parse_c_statements(c_statements):
+    '''Parses a list of C statements into their appropriate data types.
+
+    Args:
+        c_statements (List[str]): List of C statement strings to be parsed.
+    
+    Returns:
+        List: List of parsed C statements.
+    '''
     parsed_statements = []
 
     for statement in c_statements:
         # Check if statement is a variable
-        variable = check_variable(statement)
-        # if variable, then value will not be None
-        if variable:
-            parsed_statements.append(variable)
+        variables = _parse_variable(statement)
+        # if it's a variable, then value will not be None
+        if variables:
+            parsed_statements.extend(variables)
             continue
 
         # Check if statement is a condition
-        conditional, body = check_conditional(statement)
-        if conditional != '':
-            body_statements = split_c_code(body)
-            body_statements = parse_c_statements(body_statements)
-            conditional.body = body_statements
+        conditional = _parse_conditional(statement)
+        if conditional:
+            # body_statements = _split_c_code(body)
+            # body_statements = _parse_c_statements(body_statements)
+            # conditional.body = body_statements
             parsed_statements.append(conditional)
             continue
 
@@ -389,57 +313,119 @@ def parse_c_statements(c_statements):
     return parsed_statements
 
 
-######################### GET FUNCTION CONTENTS V2 #########################
-def get_function_contents_v2(content, function):
-    # Normalize spaces: replace multiple spaces with a single space
-    content = re.sub(r'\s+', ' ', content.strip())
+def _get_headers(file_contents):
+    '''Retrieves all headers from file contents and returns them as a list of strings.
 
-    # Extract details from the dictionary
-    return_type = function.return_type
-    func_name = function.function_name
-    params = function.parameters
-
-    # Build the parameter string
-    param_str = ', '.join(f"{param.data_type} {param.name}" for param in params)
+    Args:
+        file_contents (str): C file contents.
     
-    # Construct the function signature regex dynamically
-    func_pattern = re.compile(rf'\s*{return_type}\s+{func_name}\s*\({param_str}\)\s*(\{{|\s*\{{)')
+    Returns:
+        List[str]: List of headers in C file.
+    '''
+    pattern = r'#include [<"]([^>"]+)[>"]'
+    matches = re.finditer(pattern, file_contents)
+    headers = []
+    for match in matches:
+        headers.append(match.group(0))
+    return headers
 
-    found_function = False
-    inside_function = False
-    brace_count = 0
-    function_body = ''
 
-    # Search for the function match within the entire content
-    match = func_pattern.search(content)
+def _extract_function_body(code):
+    '''Identifies and parses any code contained in the body of a conditional, loop, function, etc.
+
+    Args:
+        code (str): C code as a string to retrieve body from.
     
-    if match:
-        found_function = True
-        inside_function = True
-        brace_count = 1  # We've found the opening brace
+    Returns:
+        List: List of C statements from the body.
+    '''
+    body_start = code.index('{') + 1
+    brace_count = 1
+    i = body_start
 
-        # Now process the content after the function signature
-        for i in range(match.end(), len(content)):
-            char = content[i]
+    while i < len(code) and brace_count > 0:
+        if code[i] == '{':
+            brace_count += 1
+        elif code[i] == '}':
+            brace_count -= 1
+        i += 1
+    
+    function_body = code[body_start:i-1].strip()
+    function_statements = _split_c_code(function_body)
+    formatted_function_body = _parse_c_statements(function_statements)
 
-            # Track braces to find the body of the function
-            if char == '{':
-                brace_count += 1
-            elif char == '}':
-                brace_count -= 1
+    return formatted_function_body
 
-            if inside_function and brace_count > 0:
-                function_body += char
 
-            # If we've closed all braces, we've captured the full function
-            if brace_count == 0:
-                inside_function = False
-                break
+def _extract_function_parameters(parameters):
+    '''Retrieves and parses a list of parameters from a function.
 
-    if not found_function:
-        return None
+    Args:
+        parameters (str): Function parameters represented as a string.
+    
+    Returns:
+        List[Variable]: List of function parameters parsed into Variable type
+    '''
+    parameters = parameters.strip().split(',')
+    parameters = [param for param in parameters if param] # removes all empty strings
+    for i in range(len(parameters)):
+        data_type, var_name = parameters[i].strip().split(' ')
+        if var_name[0] == '*':
+            data_type += '*'
+            var_name = var_name[1:]
 
-    split_statements = split_c_code(function_body)
-    statements = parse_c_statements(split_statements)
+        parameters[i] = Variable(data_type=data_type, name=var_name, value=None)
+    return parameters
 
-    return statements
+
+def _parse_function(code):
+    '''Parses a function into the appropriate function data type (Function or FunctionDefinition).
+
+    Args:
+        code (str): C function code to be parsed.
+    
+    Returns:
+        FunctionDefinition: If the code is a function definition (contains '{...}').
+
+        Function: If the code is a function declaration (ends with ';').
+        
+        None: If the code does not match a valid function pattern.
+    '''
+    code = code.strip()
+    if '{' in code or '}' in code:
+        # function definition
+        pattern = r'^\s*([a-zA-Z_][\w\s\*]+)\s+([a-zA-Z_]\w*)\s*\(([^)]*?)\)\s*\{([\s\S]*?)\}\s*$' # can be used with newlines and tabs present
+        match = re.match(pattern, code)
+        if not match:
+            return None
+
+        # Store return type and function name into variables
+        return_type = match.group(1)
+        function_name = match.group(2)
+
+        # Split function parameters into Variable types
+        parameters = _extract_function_parameters(match.group(3))
+
+        # Extract function body, split into list of C statements, and parse into appropriate type
+        function_body = _extract_function_body(code)
+
+        return FunctionDefinition(return_type=return_type, function_name=function_name, parameters=parameters, body=function_body)
+        
+    elif ';' in code:
+        # function declaration
+        pattern = r'(\w+)\s+(\w+)\s*\(([^)]*)\)\s*;'
+        match = re.match(pattern, code)
+        if not match:
+            return None
+
+        # Store return type and function name into variables
+        return_type = match.group(1)
+        function_name = match.group(2)
+        
+        # Split function parameters into Variable types
+        parameters = _extract_function_parameters(match.group(3))
+
+        return FunctionDeclaration(return_type=return_type, function_name=function_name, parameters=parameters)
+    
+    else:
+        print('Unknown function type')

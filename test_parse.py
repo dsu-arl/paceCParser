@@ -1,17 +1,30 @@
-from .parser import check_variable, check_conditional, split_c_code, parse_c_statements
+from .parser import _parse_variable, _parse_conditional, _split_c_code, _parse_c_statements, _parse_function
 import pytest
-from .test_cases import variables_test_cases, conditionals_test_cases
+from .test_cases import *
 
 
-@pytest.mark.parametrize('statement, expected', variables_test_cases)
-def test_variable_parse(statement, expected):
-    assert check_variable(statement) == expected
+@pytest.mark.parametrize(
+    'case',
+    variables_test_cases,
+    ids=[case.id for case in variables_test_cases]
+)
+def test_variable_parse(case):
+    assert _parse_variable(case.statement) == case.expected
 
 
-@pytest.mark.parametrize('statement, expected', conditionals_test_cases)
-def test_condition_parse(statement, expected):
-    conditional, body = check_conditional(statement)
-    body_statements = split_c_code(body)
-    body_statements = parse_c_statements(body_statements)
-    conditional.body = body_statements
-    assert conditional == expected
+@pytest.mark.parametrize(
+    'case',
+    conditionals_test_cases,
+    ids=[case.id for case in conditionals_test_cases]
+)
+def test_condition_parse(case):
+    assert _parse_conditional(case.statement) == case.expected
+
+
+@pytest.mark.parametrize(
+    'case',
+    function_test_cases,
+    ids=[case.id for case in function_test_cases]
+)
+def test_function_parse(case):
+    assert _parse_function(case.statement) == case.expected

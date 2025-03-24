@@ -1,62 +1,175 @@
-from .data_classes import Variable, If, ElseIf, Else
+from .data_classes import *
+from dataclasses import dataclass
+
+
+@dataclass
+class Case:
+    id: str
+    statement: str
+    expected: object
 
 
 #################### VARIABLE TEST CASES ####################
 variables_test_cases = [
-    ('int x = 5;', Variable(data_type='int', name='x', value=5)), # int declaration and initialization
-    ('int age;', Variable(data_type='int', name='age', value=None)), # int declaration
-    ('age = 26;', Variable(data_type=None, name='age', value=26)), # int assignment
-    ("char test = 'c';", Variable(data_type='char', name='test', value="'c'")),
-    ("char letter;", Variable(data_type='char', name='letter', value=None)),
-    ("test = 'c';", Variable(data_type=None, name='test', value="'c'"))
+    Case(
+        id='int declaration and initialization',
+        statement='int x = 5;',
+        expected=[Variable(data_type='int', name='x', value=5)]
+    ),
+    Case(
+        id='int declaration',
+        statement='int age;',
+        expected=[Variable(data_type='int', name='age', value=None)]
+    ),
+    Case(
+        id='int assignment',
+        statement='age = 26;',
+        expected=[Variable(data_type=None, name='age', value=26)]
+    ),
+    Case(
+        id='char declaration and initialization',
+        statement="char test = 'c';",
+        expected=[Variable(data_type='char', name='test', value="'c'")]
+    ),
+    Case(
+        id='char declaration',
+        statement="char letter;",
+        expected=[Variable(data_type='char', name='letter', value=None)]
+    ),
+    Case(
+        id='char assignment',
+        statement="test = 'c';",
+        expected=[Variable(data_type=None, name='test', value="'c'")]
+    ),
+    Case(
+        id='multiple int declarations on single line',
+        statement='int x, y;',
+        expected=[
+            Variable(data_type='int', name='x', value=None),
+            Variable(data_type='int', name='y', value=None)
+        ]
+    ),
+    Case(
+        id='multiple int declarations and initializations on single line',
+        statement='int x = 5, y = 10;',
+        expected=[
+            Variable(data_type='int', name='x', value=5),
+            Variable(data_type='int', name='y', value=10)
+        ]
+    ),
+    Case(
+        id='multiple int initializations on single line',
+        statement='x = 5, y = 10;',
+        expected=[
+            Variable(data_type=None, name='x', value=5),
+            Variable(data_type=None, name='y', value=10)
+        ]
+    )
 ]
 
 
 #################### CONDITIONAL TEST CASES ####################
 conditionals_test_cases = [
-    # if statement
-    (
-        '''
+    Case(
+        id='If statement',
+        statement='''
         if (a > b) {
             printf("a is greater than b\n");
         }
         ''',
-        If(condition='a > b', body=['printf("a is greater than b\n");'])
+        expected=If(condition='a > b', body=['printf("a is greater than b\n");'])
     ),
-    # else if statement
-    (
-        '''
+    Case(
+        id='Else If statement',
+        statement='''
         else if (a == b) {
             printf("a is equal to b\n");
         }
         ''',
-        ElseIf(condition='a == b', body=['printf("a is equal to b\n");'])
+        expected=ElseIf(condition='a == b', body=['printf("a is equal to b\n");'])
     ),
-    # else statement
-    (
-        '''
+    Case(
+        id='Else statement',
+        statement='''
         else {
             print("a is less than b\n");
         }
         ''',
-        Else(body=['print("a is less than b\n");'])
+        expected=Else(body=['print("a is less than b\n");'])
     ),
-    # if statement with multiple body statements
-    (
-        '''
+    Case(
+        id='If statement with multiple body statements',
+        statement='''
         if (a == 5) {
             int b = 10;
             printf("a is equal to 5\n");
         }
         ''',
-        If(
+        expected=If(
             condition='a == 5',
             body=[
                 Variable(data_type='int', name='b', value=10),
                 'printf("a is equal to 5\n");'
             ]
         )
-    )
+    ),
+    Case(
+        id='If statement with condition of 1 (always true)',
+        statement='''
+        if (1) {
+            printf("This statement will always print\n");
+        }
+        ''',
+        expected=If(
+            condition='1',
+            body=['printf("This statement will always print\n");']
+        )
+    ),
+    Case(
+        id='If statement with no curly braces',
+        statement='''
+        if (x == y)
+            printf("x is equal to y\n");
+        ''',
+        expected=If(
+            condition='x == y',
+            body=['printf("x is equal to y\n");']
+        )
+    ),
+    Case(
+        id='Else If statement with no curly braces',
+        statement='''
+        else if (x > y)
+            printf("x is greater than y\n");
+        ''',
+        expected=ElseIf(
+            condition='x > y',
+            body=['printf("x is greater than y\n");']
+        )
+    ),
+    Case(
+        id='Else statement with no curly braces',
+        statement='''
+        else
+            printf("x is less than y\n");
+        ''',
+        expected=Else(body=['printf("x is less than y\n");'])
+    ),
+    Case(
+        id='If statement with multiple integers declared on single line',
+        statement='''
+        if (a == 5) {
+            int a = 6, b = 10;
+        }
+        ''',
+        expected=If(
+            condition='a == 5',
+            body=[
+                Variable(data_type='int', name='a', value=6),
+                Variable(data_type='int', name='b', value=10),
+            ]
+        )
+    ),
 ]
 
 
@@ -67,3 +180,110 @@ conditionals_test_cases = [
 
 
 ######################### FUNCTION TEST CASES #########################
+function_test_cases = [
+    Case(
+        id='Function declaration',
+        statement='int sum(int a, int b);',
+        expected=FunctionDeclaration(
+            return_type='int',
+            function_name='sum',
+            parameters=[
+                Variable(data_type='int', name='a', value=None),
+                Variable(data_type='int', name='b', value=None)
+            ]
+        )
+    ),
+    Case(
+        id='Function definition',
+        statement='''
+            int subtract(int x, int y) {
+                int diff = x - y;
+                return diff;
+            }
+        ''',
+        expected=FunctionDefinition(
+            return_type='int',
+            function_name='subtract',
+            parameters=[
+                Variable(data_type='int', name='x', value=None),
+                Variable(data_type='int', name='y', value=None)
+            ],
+            body=[
+                Variable(data_type='int', name='diff', value='x - y'),
+                'return diff;'
+            ]
+        )
+    ),
+    Case(
+        id='If-Else inside of function definition',
+        statement='''
+        void compare(int x, int y) {
+            if (x >= y) {
+                printf("x is greater than or equal to y\n");
+            }
+            else {
+                printf("x less than y\n");
+            }
+        }
+        ''',
+        expected=FunctionDefinition(
+            return_type='void',
+            function_name='compare',
+            parameters=[
+                Variable(data_type='int', name='x', value=None),
+                Variable(data_type='int', name='y', value=None)
+            ],
+            body=[
+                If(
+                    condition='x >= y',
+                    body=['printf("x is greater than or equal to y\n");']
+                ),
+                Else(body=['printf("x less than y\n");'])
+            ]
+        )
+    ),
+    Case(
+        id='If-ElseIf-Else inside of function definition',
+        statement='''
+        void compare(int x, int y) {
+            if (x == y) {
+                if (1 == 1) {
+                    printf("This is a true statement\n");
+                }
+                printf("x is equal to y\n");
+            }
+            else if (x > y) {
+                printf("x is greater than y\n");
+            }
+            else {
+                printf("x is less than y\n");
+            }
+        }
+        ''',
+        expected=FunctionDefinition(
+            return_type='void',
+            function_name='compare',
+            parameters=[
+                Variable(data_type='int', name='x', value=None),
+                Variable(data_type='int', name='y', value=None)
+            ],
+            body=[
+                If(
+                    condition='x == y',
+                    body=[
+                        If(
+                            condition='1 == 1',
+                            body=['printf("This is a true statement\n");']
+                        ),
+                        'printf("x is equal to y\n");',
+                    ]
+                ),
+                ElseIf(
+                    condition='x > y',
+                    body=['printf("x is greater than y\n");']
+                ),
+                Else(body=['printf("x is less than y\n");'])
+            ]
+        )
+    )
+]
